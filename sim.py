@@ -1,7 +1,7 @@
 import numpy
 import scipy.ndimage as ndimage
 import math
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import os
 from Calc_COV import calc_likelihood, sampleLike
 import array
@@ -213,7 +213,6 @@ def runsim(parameter,ti,dst,path,template,sampler,thresh,true_model=None,modelOb
     # # ax2.grid(visible=1,which='both')
     # cbar = plt.colorbar(im2)
     for x,y,p,idx in zip(xL,yL,path,range(path.size)):
-        start_cand = time.time()
         #print(x,y,p,idx)
         # if(idx%(path.size//100)==0):
             # print(idx*100//path.size," %");
@@ -222,12 +221,8 @@ def runsim(parameter,ti,dst,path,template,sampler,thresh,true_model=None,modelOb
             dst[max(0,x-hx):min(dst.shape[0],x+hx)+1,max(0,y-hy):min(dst.shape[1],y+hy)+1];
 
         if modelObj.data_cond!=0 and ((idx+1)*100/path.size)<=thresh:
-            startQS = time.time()
             cand_index = sampler(parameter,source,template,modelObj.data_cond);
-            print("It takes "+str((time.time()-startQS))+" s to comp. QS")
-            start = time.time()
             simIndex, wrmse, LogProb = fw(ti,cand_index,p,dst.copy(),sampler.__name__,modelObj) 
-            print("It takes "+str((time.time()-start))+" s to comp. the chosen candidate")
             WRMSE.append(wrmse)
             LP.append(LogProb)
             
@@ -247,7 +242,6 @@ def runsim(parameter,ti,dst,path,template,sampler,thresh,true_model=None,modelOb
         # cbar.draw_all() 
         # fig.canvas.draw()
         # plt.pause(0.01)
-        print("It takes "+str((time.time()-start_cand))+" s to comp. one step")
     if modelObj.fw=='pygimli':
         del modelObj.tt
 

@@ -134,14 +134,9 @@ def calc_likelihood(dist,s,modelObj,cand_index,ti,**kwargs):
         A=update_J(mu2, modelObj.tt)
     else:
         A=update_J(modelObj.mu_2g1, modelObj.tt)
-    start = time.time()
     mu_L = np.matmul(A,mu_2g1)
-    print("It takes "+str((time.time()-start))+" s to comp. forward response")
-    start = time.time()
-    FD = np.matmul(np.matmul(A,Sigma_2g1),A.transpose())
-    print("It takes "+str((time.time()-start))+" s to comp. covariance multiplication")
-    Sigma_L = np.eye(A.shape[0], dtype = np.float32)*modelObj.sigma_d**2 + FD
-    print("It takes "+str((time.time()-start))+" s to comp. Sigma_L")
+    Sigma_L = np.eye(A.shape[0], dtype = np.float32)*modelObj.sigma_d**2 + np.matmul(np.matmul(A,Sigma_2g1),A.transpose())
+
     # Cd = np.eye(A.shape[0], dtype = np.float32)*modelObj.sigma_d
     # Sigma_L_inv = woodbury_identity(Cd, A, A.transpose(), Sigma_2g1)
 
@@ -151,9 +146,7 @@ def calc_likelihood(dist,s,modelObj,cand_index,ti,**kwargs):
         Sigma_L = np.delete(Sigma_L,modelObj.index, axis=1)
     misf = modelObj.d_obs - mu_L
     # logP = -( modelObj.d_obs.size / 2.0) * np.log(2.0 * np.pi) - 0.5 * np.linalg.det(Sigma_L_inv) - 0.5 * (np.matmul(np.matmul(misf.transpose(0,2,1),Sigma_L_inv),misf))
-    start = time.time()
     logP = -( modelObj.d_obs.size / 2.0) * np.log(2.0 * np.pi) - 0.5 * np.linalg.slogdet(Sigma_L)[1] - 0.5 * (np.matmul(np.matmul(misf.transpose(0,2,1),np.linalg.inv(Sigma_L)),misf))
-    print("It takes "+str((time.time()-start))+" s to comp. the log-Likelihood")
     # print('likelihood calculation time'+str((time.time()-start)))
 
         # if ii==0:

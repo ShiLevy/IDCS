@@ -58,7 +58,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--workdir", default='./', type=str, help="working directory (where all the models are"
     )
-    parser.add_argument("--outdir", default= './test/', type=str, help="directory to save results in"
+    parser.add_argument("--outdir", default= './results/', type=str, help="directory to save results in"
     )
     parser.add_argument("--case", default= 'LowConnectedGaussian', type=str, help="Test case and results name"
     )
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     #%%             Dask distributed
     if args.distributed==1 and numRealz>1:
         import dask
-        from dask.distributed import Client#, LocalCluster
+        from dask.distributed import Client, LocalCluster
         from time import sleep
         
         realz = []
