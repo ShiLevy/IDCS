@@ -26,23 +26,27 @@ from Model_obj import Model_obj
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extended Metropolis with sequential Gibbs sampler based on QS simulation"
     )
-    parser.add_argument("--numChains",default=2,type=int,help="number of MCMC chains",
+    parser.add_argument("--numChains",default=8,type=int,help="number of MCMC chains",
     )
-    parser.add_argument("--restart",default=0,type=bool,help="number of MCMC chains",
+    parser.add_argument("--restart",default=1,type=bool,help="Restart existing run (1), new run (0)",
     )    
-    parser.add_argument("--Iter",default=100,type=int,help="number of MCMC iterations per chain",
+    parser.add_argument("--Iter",default=20000,type=int,help="number of MCMC iterations per chain",
     )
-    parser.add_argument("--thin",default=1,type=int,help="iteration skip to tune delta and calculate statistics",
+    parser.add_argument("--thin",default=100,type=int,help="iteration skip to tune delta and calculate statistics",
     )    
+    parser.add_argument("--delta_adjust", default=20, type=int, help="number of step before delta is adjusted"
+    )  
+    parser.add_argument("--Ptarget", default=0.3, type=float, help="target acceptance rate"
+    )
     parser.add_argument("--random", default=0, type=bool, help="reproducible results (0), random paths (1)"
     )   
     parser.add_argument("--sigma-d", default=1, type=float, help="standard deviation of the observational noise in [ns]"
     )    
     parser.add_argument("--TIsize", default=500, type=int, help="size of TI to use for MPS simulation"
     )   
-    parser.add_argument("--x", default=8, type=int, help="X size"
+    parser.add_argument("--x", default=50, type=int, help="X size"
     )   
-    parser.add_argument("--y", default=16, type=int, help="Y size"
+    parser.add_argument("--y", default=100, type=int, help="Y size"
     )   
     parser.add_argument("--n", default=30, type=int, help="number of neighbors"
     )  
@@ -54,15 +58,15 @@ if __name__ == "__main__":
     ) 
     parser.add_argument("--distributed", default=1, type=bool, help="parallel computing of realizations if more than 1"
     )
-    parser.add_argument("--workdir", default='/home/slevy/Desktop/3rd_project_MPS/PyQS-PyDS/', type=str, help="working directory (where all the models are"
+    parser.add_argument("--workdir", default='/users/slevy4/working_dir/conditional_MPS/', type=str, help="working directory (where all the models are"
     )
-    parser.add_argument("--outdir", default= '/home/slevy/Desktop/3rd_project_MPS/PyQS-PyDS/results/MCMC/', type=str, help="directory to save results in"
+    parser.add_argument("--outdir", default= '/users/slevy4/working_dir/conditional_MPS/results/MCMC/', type=str, help="directory to save results in"
     )
     parser.add_argument("--case", default= 'channels', type=str, help="Test case and results name"
     )
     
     args = parser.parse_args()
-    outdir = args.outdir+args.case+'_k'+str(args.k)+'_n'+str(args.n)+'_TIsize'+str(args.TIsize)+'_TEST/'
+    outdir = args.outdir+args.case+'_k'+str(args.k)+'_n'+str(args.n)+'_TIsize'+str(args.TIsize)+'/'
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     with open(outdir+'run_commandline_args.txt', 'w') as f:
@@ -78,7 +82,8 @@ if __name__ == "__main__":
     x = args.x
     y = args.y
     sigma_d  = args.sigma_d
-    Pc = 0.3
+    Pc = args.Ptarget
+    delta_adjust = args.delta_adjust
     
     # QS parameters 
     n = args.n   # number of neighbors to caclulate based oI thought that maybe for the channels (and most probably for the lenses) case we try to implement something like what Gregoire suggested. Doing some "burn-in" n 
@@ -119,7 +124,6 @@ if __name__ == "__main__":
     ti = fullTI[:cutSize,:cutSize];
     mu_m = np.mean(fullTI)
     sigma_m = np.std(fullTI)
-    AR_adjust = 1
     
     if args.restart:
         print("Restarting MCMC chains")
@@ -147,9 +151,9 @@ if __name__ == "__main__":
             realz = np.concatenate([realz,np.zeros((numChains,int(iterations.size/thin),y,x)).astype(np.float32)],axis=1)
             WRMSE = np.concatenate([WRMSE,np.zeros((numChains,int(iterations.size/thin))).astype(np.float32)],axis=1)
             LP = np.concatenate([LP,np.zeros((numChains,int(iterations.size/thin))).astype(np.float32)],axis=1)
-            AR = np.concatenate([AR, np.zeros(int(iterations.size/AR_adjust)).astype(np.float16)],axis=0)
+            AR = np.concatenate([AR, np.zeros(int(iterations.size/delta_adjust)).astype(np.float16)],axis=0)
             R_stat = np.concatenate([R_stat,np.zeros((int(iterations.size/thin),x*y)).astype(np.float16)],axis=0)
-            delta_ar = np.concatenate([delta_ar,np.zeros(int(iterations.size/AR_adjust))],axis=0)
+            delta_ar = np.concatenate([delta_ar,np.zeros(int(iterations.size/delta_adjust))],axis=0)
         else:
             continueInd =  np.argwhere(LP==0)[0][1]-1
             iterations = np.arange(continueInd*thin,Iter)
@@ -180,21 +184,22 @@ if __name__ == "__main__":
         realz = np.zeros((numChains,int(Iter/thin)+1,y,x)).astype(np.float32)
         WRMSE = np.zeros((numChains,int(Iter/thin)+1)).astype(np.float32)
         LP = np.zeros((numChains,int(Iter/thin)+1)).astype(np.float32)
-        AR = np.zeros(int(Iter/AR_adjust)+1).astype(np.float16)
+        AR = np.zeros(int(Iter/delta_adjust)+1).astype(np.float16)
         R_stat = np.zeros((int(Iter/thin)+1,x*y)).astype(np.float16)
         wrmse = np.zeros(numChains).astype(np.float32)
-        delta_ar = np.zeros(int(Iter/AR_adjust)+1).astype(int)
+        delta_ar = np.zeros(int(Iter/delta_adjust)+1).astype(int)
         delta=2#int(max(x,y)*0.5)#np.random.randint(0,int(min(x,y)/2))
         iterations = np.arange(0,Iter)
         
         '''generate initial model'''
         dst = np.zeros(realz[:,0].shape)*np.nan;   # grid to be simulated
+        
+        with open(outdir+'trueModel.pkl', 'wb') as f:
+            pickle.dump(true_model, f)
 
     Mprop = np.zeros((numChains,y,x))    
     log_p_new = np.zeros(numChains)
-    path = np.zeros((numChains,x*y))
-
-    
+    # path = np.zeros((numChains,x*y))
     
 #%%     parallel chains avolution
     if args.distributed==1 and numChains>1:
@@ -236,14 +241,14 @@ if __name__ == "__main__":
                     Mnew[idx] = Mprop[idx]
                     log_p_old[idx] = log_p_new[idx]
                     wrmse[idx] = np.array([result[ind][1] for ind in idx])
-                    if (step+1)%AR_adjust==0:    
-                        delta_ar[int(step/AR_adjust)+1] = delta
-                        AR[int(step/AR_adjust)+1] = 100 * accept/(AR_adjust * numChains)
-                        if step<int(Iter*0.2):
-                            delta = max(int(delta * (accept/(AR_adjust * numChains * Pc))),1)
-                        # if step<int(Iter*0.2) and (AR[int((step)/AR_adjust)+1]<25): 
+                    if (step+1)%delta_adjust==0:    
+                        delta_ar[int(step/delta_adjust)+1] = delta
+                        AR[int(step/delta_adjust)+1] = 100 * accept/(delta_adjust * numChains)
+                        if step<2000:
+                            delta = max(int(delta * (accept/(delta_adjust * numChains * Pc))),1)
+                        # if step<int(Iter*0.2) and (AR[int((step)/delta_adjust)+1]<25): 
                         #     delta-=1
-                        # elif step<int(Iter*0.2) and (AR[int((step)/AR_adjust)+1]>40):
+                        # elif step<int(Iter*0.2) and (AR[int((step)/delta_adjust)+1]>40):
                         #     delta+=1
                         accept = 0
                     if (step+1)%thin==0: 
@@ -251,6 +256,8 @@ if __name__ == "__main__":
                         WRMSE[:,int(step/thin)+1] = wrmse
                         LP[:,int(step/thin)+1] = log_p_old            
                         R_stat[int((step)/thin)+1,:] = GelmanRubin(realz[:,int(step/thin*0.5):int(step/thin)+1,:])
+                        with open(outdir+'MPSrun.pkl', 'wb') as f:
+                            pickle.dump((model,realz,WRMSE,LP,delta_ar,AR,R_stat,Iter,thin), f)
 
                 else:
                     R_stat[0] = -2*np.ones(x*y)
@@ -284,6 +291,4 @@ if __name__ == "__main__":
         json.dump((args.__dict__,{"time [hr]":round((end-start),4)/3600}), f, indent=2)
     with open(outdir+'MPSrun.pkl', 'wb') as f:
         pickle.dump((model,realz,WRMSE,LP,delta_ar,AR,R_stat,Iter,thin), f)
-    with open(outdir+'trueModel.pkl', 'wb') as f:
-        pickle.dump(true_model, f)
     

@@ -105,6 +105,8 @@ if __name__ == "__main__":
     else:
         a0=None
         sampler = qsCat
+        #field = np.where(field==0.06,0,1) #if channels are slower (1,0) if matrix is faster (0,1)
+        #field = 0.06 + 0.02*(1-field)
         fullTI = 1/field   #assign new mean and standard deviation to the field   
         if args.case=='channels':
             #true_model = fullTI[1020:1020+y,1040:1040+x]
@@ -132,8 +134,8 @@ if __name__ == "__main__":
         if args.resim:
             from sim import set_J
             from Calc_COV import update_J
-            # bestModel = np.load(outdir+'bestModel.npy')
-            bestModel = true_model
+            bestModel = np.load(outdir+'bestModel.npy')
+            # bestModel = true_model
             temp_tt = set_J(param,bestModel)
             A=update_J(bestModel, temp_tt)
             model = Model_obj(data_cond,args.LikeProb,args.sampProp,x,y,sigma_d,sigma_m,mu_m,A,d_obs)
