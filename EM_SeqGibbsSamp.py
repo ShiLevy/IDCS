@@ -28,7 +28,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--numChains",default=8,type=int,help="number of MCMC chains",
     )
-    parser.add_argument("--restart",default=1,type=bool,help="Restart existing run (1), new run (0)",
+    parser.add_argument("--restart",default=1,type=int,help="Restart existing run (1), new run (0)",
     )    
     parser.add_argument("--Iter",default=20000,type=int,help="number of MCMC iterations per chain",
     )
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     )  
     parser.add_argument("--Ptarget", default=0.3, type=float, help="target acceptance rate"
     )
-    parser.add_argument("--random", default=0, type=bool, help="reproducible results (0), random paths (1)"
+    parser.add_argument("--random", default=0, type=int, help="reproducible results (0), random paths (1)"
     )   
     parser.add_argument("--sigma-d", default=1, type=float, help="standard deviation of the observational noise in [ns]"
     )    
@@ -50,13 +50,13 @@ if __name__ == "__main__":
     )   
     parser.add_argument("--n", default=30, type=int, help="number of neighbors"
     )  
-    parser.add_argument("--k", default=1.2, type=int, help="number of candidates (low value give more importance to MPS)"
+    parser.add_argument("--k", default=1.2, type=float, help="number of candidates (low value give more importance to MPS)"
     )  
     parser.add_argument("--alpha", default=0, type=int, help="factor of the weighting kernel"
     ) 
     parser.add_argument("--kernel-size", default=51, type=int, help="weighting kernel size"
     ) 
-    parser.add_argument("--distributed", default=1, type=bool, help="parallel computing of realizations if more than 1"
+    parser.add_argument("--distributed", default=1, type=int, help="parallel computing of realizations if more than 1"
     )
     parser.add_argument("--workdir", default='/users/slevy4/working_dir/conditional_MPS/', type=str, help="working directory (where all the models are"
     )

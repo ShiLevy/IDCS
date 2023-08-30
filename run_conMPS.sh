@@ -9,7 +9,7 @@
 ##SBATCH --nodes 1
 
 # if running with dask-MPI set ntasks to (nr. CPUs + 2), if with dask distributed set to (nr. CPUs) 
-#SBATCH --ntasks 7
+#SBATCH --ntasks 102
 
 #SBATCH --partition cpu
 #SBATCH --cpus-per-task 1
@@ -18,7 +18,7 @@
 ##SBATCH --gres-flags enforce-binding
 ##SBATCH --mem 100G
 
-#SBATCH --time 1:00:00
+#SBATCH --time 10:00:00
 
 #SBATCH --output=con_MPS_%A.out
 #SBATCH --error=con_MPS_%A.error
@@ -42,7 +42,7 @@ export OMP_NUM_THREADS=1
 #python qs.py --numRealz=5 --random=0 --LikeProb=2 --sampProp=1 --data-cond=1 --linear=1 --resim=0 --sigma-d=1 --TIsize=500 --x=8 --y=16 --n=25 --k=100 --alpha=0 --distributed=1 --outdir='results/' --case='channels' --workdir='/users/slevy4/conditional_MPS/'
 
 #srun python qs.py --numRealz=10 --random=0 --LikeProb=2 --sampProp=1 --data-cond=1 --linear=1 --resim=0 --sigma-d=1 --TIsize=500 --x=50 --y=100 --n=10 --k=100 --alpha=0 --distributed=1 --outdir='results/' --case='GaussianRandomField' --workdir='/users/slevy4/conditional_MPS/'
-srun python qs.py --numRealz=5 --random=0 --LikeProb=2 --sampProp=1 --data-cond=1 --linear=1 --resim=0 --sigma-d=1 --TIsize=500 --x=8 --y=16 --n=25 --k=100 --alpha=0 --distributed=1 --outdir='results/' --case='channels' --workdir='/users/slevy4/conditional_MPS/'
+srun python qs.py --numRealz=100 --random=0 --LikeProb=4 --sampProp=1 --data-cond=1 --linear=0 --resim=0 --sigma-d=1 --TIsize=500 --x=50 --y=100 --n=25 --k=100 --alpha=0 --distributed=1 --outdir='results/' --case='channels' --workdir='/users/slevy4/conditional_MPS/'
 
 
 

@@ -38,5 +38,6 @@ class Model_obj:
     fw: str = None;
     param: np.float32 = field(default=None);
     tt: str = None
-
+    d_Tapp: np.float32 = None
+    C_Tapp: np.float32 = None
     

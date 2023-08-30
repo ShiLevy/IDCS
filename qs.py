@@ -131,11 +131,26 @@ if __name__ == "__main__":
         model.fw = "linear"
     else:
         d_obs, param, index = pygimli_fw(true_model, bh_spacing=x/10, bh_length=y/10, sensor_spacing=0.4,sigma_d=sigma_d,limit_angle=1,dir=outdir)
-        if args.resim:
+        if args.LikeProb==4:
+            d_lin, A_lin, index_lin = set_fw(y,x,s_model=true_model,loc=0,scale=sigma_d,spacing=0.1,SnR_spacing=4,limit_angle=1,dir=outdir)
+            model = Model_obj(data_cond,args.LikeProb,args.sampProp,x,y,sigma_d,sigma_m,mu_m,A_lin,d_obs)
+            with open('mean_cov_error_channels.pkl', 'rb') as f:
+                tmp = pickle.load(f)
+            d_Tapp = tmp[0]
+            C_Tapp = tmp[1]
+            if index.size>0:
+                d_Tapp = np.delete(d_Tapp,index, axis=0)
+                C_Tapp = np.delete(C_Tapp,index, axis=0)
+                C_Tapp = np.delete(C_Tapp,index, axis=1)
+            model.d_Tapp = d_Tapp
+            model.C_Tapp = C_Tapp
+            model.fw = "linear"
+            del d_lin, index_lin, tmp, d_Tapp, C_Tapp
+        elif args.resim:
             from sim import set_J
             from Calc_COV import update_J
-            bestModel = np.load(outdir+'bestModel.npy')
-            # bestModel = true_model
+            # bestModel = np.load(outdir+'bestModel.npy')
+            bestModel = true_model
             temp_tt = set_J(param,bestModel)
             A=update_J(bestModel, temp_tt)
             model = Model_obj(data_cond,args.LikeProb,args.sampProp,x,y,sigma_d,sigma_m,mu_m,A,d_obs)
