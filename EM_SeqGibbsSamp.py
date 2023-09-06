@@ -30,7 +30,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--restart",default=1,type=int,help="Restart existing run (1), new run (0)",
     )    
-    parser.add_argument("--Iter",default=20000,type=int,help="number of MCMC iterations per chain",
+    parser.add_argument("--Iter",default=20000,type=int,help="number of MCMC iterations per chain (total nr. if restarting a failed run",
     )
     parser.add_argument("--thin",default=100,type=int,help="iteration skip to tune delta and calculate statistics",
     )    
@@ -156,11 +156,11 @@ if __name__ == "__main__":
             delta_ar = np.concatenate([delta_ar,np.zeros(int(iterations.size/delta_adjust))],axis=0)
         else:
             continueInd =  np.argwhere(LP==0)[0][1]-1
-            iterations = np.arange(continueInd*thin,Iter)
+            iterations = np.arange(continueInd*thin,(realz.shape[1]-1)*thin)
             Mnew = realz[:,continueInd]
             log_p_old = LP[:,continueInd]
             wrmse = WRMSE[:,continueInd]
-            delta = int(delta_ar[continueInd*10])
+            delta = int(delta_ar[int(continueInd*thin/delta_adjust)])
         
         Mnew = Mnew.astype(np.float64)
         cp = np.array([np.random.randint(0,y),np.random.randint(0,x)])

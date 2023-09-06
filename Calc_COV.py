@@ -147,7 +147,7 @@ def calc_likelihood(dist,s,modelObj,cand_index,ti,**kwargs):
     misf = modelObj.d_obs - mu_L
     if modelObj.LikeProb==4:
         Sigma_L += modelObj.C_Tapp
-        misf -= modelObj.d_Tapp
+        misf += modelObj.d_Tapp
     # logP = -( modelObj.d_obs.size / 2.0) * np.log(2.0 * np.pi) - 0.5 * np.linalg.det(Sigma_L_inv) - 0.5 * (np.matmul(np.matmul(misf.transpose(0,2,1),Sigma_L_inv),misf))
     logP = -( modelObj.d_obs.size / 2.0) * np.log(2.0 * np.pi) - 0.5 * np.linalg.slogdet(Sigma_L)[1] - 0.5 * (np.matmul(np.matmul(misf.transpose(0,2,1),np.linalg.inv(Sigma_L)),misf))
     # print('likelihood calculation time'+str((time.time()-start)))

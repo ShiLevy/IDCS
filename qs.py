@@ -64,7 +64,7 @@ if __name__ == "__main__":
     )
     
     args = parser.parse_args()
-    outdir = args.outdir+args.case+'_k'+str(args.k)+'_n'+str(args.n)+'_alpha'+str(args.alpha)+'_debug/'
+    outdir = args.outdir+args.case+'_k'+str(args.k)+'_n'+str(args.n)+'_alpha'+str(args.alpha)+'_nonlinearMPI/'
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     with open(outdir+'run_commandline_args.txt', 'w') as f:
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         if args.LikeProb==4:
             d_lin, A_lin, index_lin = set_fw(y,x,s_model=true_model,loc=0,scale=sigma_d,spacing=0.1,SnR_spacing=4,limit_angle=1,dir=outdir)
             model = Model_obj(data_cond,args.LikeProb,args.sampProp,x,y,sigma_d,sigma_m,mu_m,A_lin,d_obs)
-            with open('mean_cov_error_channels.pkl', 'rb') as f:
+            with open('mean_cov_error_'+args.case+'.pkl', 'rb') as f:
                 tmp = pickle.load(f)
             d_Tapp = tmp[0]
             C_Tapp = tmp[1]
