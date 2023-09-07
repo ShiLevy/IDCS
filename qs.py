@@ -19,7 +19,7 @@ import itertools
 from sim import qs, qsCat
 from set_fw import set_fw, pygimli_fw
 from fit_vario import fit_vario
-from Model_obj import Model_obj
+from Model_obj import Model_obj, preferential_path
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Conditional MPS simulation"
@@ -34,6 +34,8 @@ if __name__ == "__main__":
     )     
     parser.add_argument( "--data-cond", default=1, type=int, help="Condition MPS on data (0) no (1) yes"
     )
+    parser.add_argument( "--preferential", default=1, type=int, help="Use preferential path based on fwd. operator (1) or not (0)"
+    )    
     parser.add_argument( "--linear", default=0, type=int, help="linear (1) non-linear (0) forward solver"
     )
     parser.add_argument( "--resim", default=1, type=int, help="re-simulate on the best model for non linear solvers"
@@ -64,7 +66,7 @@ if __name__ == "__main__":
     )
     
     args = parser.parse_args()
-    outdir = args.outdir+args.case+'_k'+str(args.k)+'_n'+str(args.n)+'_alpha'+str(args.alpha)+'_nonlinearMPI/'
+    outdir = args.outdir+args.case+'_k'+str(args.k)+'_n'+str(args.n)+'_alpha'+str(args.alpha)+'_NonLinearMPI/'
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     with open(outdir+'run_commandline_args.txt', 'w') as f:
@@ -149,8 +151,7 @@ if __name__ == "__main__":
         elif args.resim:
             from sim import set_J
             from Calc_COV import update_J
-            # bestModel = np.load(outdir+'bestModel.npy')
-            bestModel = true_model
+            bestModel = np.load(outdir+'bestModel.npy')
             temp_tt = set_J(param,bestModel)
             A=update_J(bestModel, temp_tt)
             model = Model_obj(data_cond,args.LikeProb,args.sampProp,x,y,sigma_d,sigma_m,mu_m,A,d_obs)
@@ -191,10 +192,13 @@ if __name__ == "__main__":
         LP = []
         path = []
         dst=np.zeros((numRealz,y,x))*np.nan; 
+        if not rand:
+            np.random.seed(7)
         for r in range(numRealz):  
-            if not rand:
-                np.random.seed(seed[r])
-            path.append(np.random.permutation(dst[0].size))
+            if args.preferential:
+                path.append(preferential_path(model.A))
+            else: 
+                path.append(np.random.permutation(dst[0].size))
             
         futures = []
         # Uncomment the next line for running the simulations using **dask**
@@ -237,6 +241,10 @@ if __name__ == "__main__":
             dst=np.zeros((y,x))*np.nan;   # grid to be simulated
             if not rand:
                 np.random.seed(seed[r])
+            if args.preferential:
+                path = preferential_path(model.A)
+            else: 
+                path = np.random.permutation(dst.size)
             path = np.random.permutation(dst.size)
             # start = time.time()
             model.update = 0
