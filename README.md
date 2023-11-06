@@ -11,8 +11,9 @@ The folder includes the scripts to run the IDCS with a linear straight-ray and n
 To be added...
 
 ## License:
-========================++++++++++++++++++=====================================
 
+GNU GENERAL PUBLIC LICENSE
+See LICENSE file
 
 ## Contact:
 
