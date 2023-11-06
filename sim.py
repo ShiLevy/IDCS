@@ -4,10 +4,9 @@ import numpy
 import scipy.ndimage as ndimage
 import math
 import os
-from approx_likelihood import calc_likelihood, sampleLike
 import array
+from approx_likelihood import calc_likelihood, sampleLike
 from set_fw import set_J
-import time
 
 os.environ["MKL_NUM_THREADS"] = "1" # remove fft paralelization
 

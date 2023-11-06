@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on %(date)s
-
-@author: %(Shiran Levy)s
-"""
 import numpy as np
 from dataclasses import dataclass, field
 import array
@@ -31,12 +24,9 @@ class Model_obj:
     
     index: np.int32 = field(default=None);
     ID: int = None;
-    # true_model: np.ndarray = np.empty([],dtype=np.float32);
     seed: np.int32 = field(default=None);
     update: int = 0;
     rand: int = 1;
     fw: str = None;
     param: np.float32 = field(default=None);
     tt: str = None
-    d_Tapp: np.float32 = None
-    C_Tapp: np.float32 = None

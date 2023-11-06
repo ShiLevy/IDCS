@@ -5,12 +5,8 @@ import time
 import json
 import argparse
 import pickle
-from PIL import Image
 import scipy.ndimage as ndimage
-from io import BytesIO
 from scipy.io import loadmat
-
-import itertools
 
 '''internal imports'''
 from sim import qs, qsCat

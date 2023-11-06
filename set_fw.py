@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on %(date)s
-
-@author: %(Shiran Levy)s
-"""
 import numpy as np
 from tomokernel_straight import tomokernel_straight_2D #tomokernel solver
 import pygimli as pg
