@@ -29,6 +29,7 @@ def set_fw(y,x,s_model,loc,scale,spacing=0.1,SnR_spacing=1,limit_angle=0, dir='.
     for jj in range(0,nsource):
         for ii in range(0,nreceiver):
             data[ ( jj ) * nreceiver + ii , :] = np.array([sourcex, sourcez[jj]+spacing/2, receiverx, receiverz[ii]+spacing/2])
+            
     # Calculate forward modeling kernel (from Matlab code by Dr. James Irving, UNIL)
     A = tomokernel_straight_2D(data,x,z) # Distance of ray-segment in each cell for each ray
     A=np.array(A.todense())
@@ -37,6 +38,7 @@ def set_fw(y,x,s_model,loc,scale,spacing=0.1,SnR_spacing=1,limit_angle=0, dir='.
     noise = np.random.normal(loc=loc, scale=scale, size=A.shape[0])[:,np.newaxis]
     d_obs = A@s_model.flatten(order='C')[:,np.newaxis] + noise
 
+    # calcuting indices outside the source-receiver angle limit
     if limit_angle == True:
             count = 0
             i = 0
@@ -57,17 +59,23 @@ def set_fw(y,x,s_model,loc,scale,spacing=0.1,SnR_spacing=1,limit_angle=0, dir='.
     else:
         index = np.zeros(0)
     
+    # save noise (for plotting purposes)
     np.save(dir+'noise.npy',noise)
+    
     return d_obs, A, index
 
 def pygimli_fw(x_true, bh_spacing, bh_length, sensor_spacing, sigma_d,limit_angle=0,dir='./'):
+    
+    ############################################################
+    '''Set forward model'''
+    ############################################################
 
     model_true = np.copy(x_true) # shape: [1, 1, ny, nx]
-    # x_true = x_true.detach().numpy()
     x = model_true.shape[-1]/10 # x in meters
     y = model_true.shape[-2]/10 # y in meters
     xcells = model_true.shape[-1]+1
     ycells = model_true.shape[-2]+1
+    
     ############################################################
     '''Simulate synthetic traveltime data'''
     ############################################################
@@ -99,8 +107,8 @@ def pygimli_fw(x_true, bh_spacing, bh_length, sensor_spacing, sigma_d,limit_angl
     scheme.registerSensorIndex("g")
     
     mygrid = pg.meshtools.createMesh2D(x = np.linspace(0.0, x, xcells), y = np.linspace(0.0, -y, ycells))
-    #mygrid.createNeighbourInfos()
     print(mygrid)
+    
     # read channels simulation:
     model_true = np.reshape(x_true,np.size(x_true))
     mslow = model_true
@@ -113,12 +121,13 @@ def pygimli_fw(x_true, bh_spacing, bh_length, sensor_spacing, sigma_d,limit_angl
     ttfwd.applyData(resp)
     print(ttfwd.fop.data)
     sim_true = ttfwd.fop.data.get("t") # ns
+    
     # add synthetic noise
-    #nnoise = noise_lvl*np.random.randn(len(sim_true))
     np.random.seed(0)
     noise = np.random.normal(loc=0, scale=sigma_d, size=len(sim_true))
-    d_obs = np.array(sim_true +  noise)[:,np.newaxis]# noise_lvl scales the noise.
+    d_obs = np.array(sim_true +  noise)[:,np.newaxis]
     
+    # calcuting indices outside the source-receiver angle limit
     if limit_angle == True:
             count = 0
             i = 0
@@ -139,28 +148,23 @@ def pygimli_fw(x_true, bh_spacing, bh_length, sensor_spacing, sigma_d,limit_angl
             noise = np.delete(noise,index, axis=0)
     else:
         index = np.zeros(0)
-        
+    
+    # save noise (for plotting purposes)
     np.save(dir+'noise.npy',noise)
     
     return d_obs, (bh_spacing, bh_length, sensor_spacing), index
 
 def set_J(parameters,x_true):
     
-    ############################################################
-    '''Set forward model'''
-    ############################################################
+    ''' this function is setup in order to be able to run parallel simulations with a pygimli solver'''
     (bh_spacing, bh_length, sensor_spacing) = parameters
     model_true = np.copy(x_true) # shape: [1, 1, ny, nx]
     model_true[:] = 1
-    # x_true = x_true.detach().numpy()
     x = model_true.shape[-1]/10 # x in meters
     y = model_true.shape[-2]/10 # y in meters
     xcells = model_true.shape[-1]+1
     ycells = model_true.shape[-2]+1
-    ############################################################
-    '''Simulate synthetic traveltime data'''
-    ############################################################
-    
+   
     depth = -np.arange(0.2, bh_length+0.01, sensor_spacing)
     
     sensors = np.zeros((len(depth) * 2, 2))  # two boreholes
@@ -188,9 +192,20 @@ def set_J(parameters,x_true):
     scheme.registerSensorIndex("g")
     
     mygrid = pg.meshtools.createMesh2D(x = np.linspace(0.0, x, xcells), y = np.linspace(0.0, -y, ycells))    
+    
     # set traveltime forward model
     tt = TravelTimeManager()
     tt.fop.data = scheme
     tt.applyMesh(mygrid, secNodes=2) 
     
     return tt
+
+def update_J(s_m, tt):
+    ''' updates the Jacobian given a solver based on pygimli implemtation'''
+    # updating the Jacobian when for non-linear forward solver
+    G = np.zeros((len(tt.fop.data["valid"]), s_m.size))
+    tt.Velocity = pg.Vector(np.float64(1./s_m.flatten()))
+    tt.fop.createJacobian(1./tt.Velocity)
+    J = pg.utils.sparseMatrix2Dense(tt.fop.jacobian())
+    
+    return J

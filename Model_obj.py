@@ -40,23 +40,3 @@ class Model_obj:
     tt: str = None
     d_Tapp: np.float32 = None
     C_Tapp: np.float32 = None
-
-def preferential_path(J):
-    #%% Preferntial path according to raypath length in a cell
-    sum_path = J.sum(axis=0)
-    norm_sum = sum_path/(sum_path.sum())
-    non0 = np.nonzero(sum_path)[0]
-    partialPath=np.random.choice(non0,non0.size,replace=False,p=norm_sum[non0])
-    exist = np.arange(0,J.shape[1])
-
-    index = list()
-    rest_ind =  lambda x: x==non0
-    for i in exist:    
-        if rest_ind(i).any() == False:
-            index.append(i)
-            
-    index = np.array(index)
-    restInd = np.random.choice(index,index.size,replace=False,p=None)
-    path = np.concatenate((partialPath,restInd))
-    
-    return path

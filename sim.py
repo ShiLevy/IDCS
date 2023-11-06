@@ -1,9 +1,10 @@
+''' Code is modified from sim.py from the https://github.com/GAIA-UNIL/PyQS-PyDS repository '''
+
 import numpy
 import scipy.ndimage as ndimage
 import math
-#import matplotlib.pyplot as plt
 import os
-from Calc_COV import calc_likelihood, sampleLike
+from approx_likelihood import calc_likelihood, sampleLike
 import array
 from set_fw import set_J
 import time
@@ -33,7 +34,6 @@ def qsSample(parameter,source,template,data_cond=0):
     indexes=numpy.argpartition(numpy.roll(mismatchMap,tuple(x//2 for x in template.shape),(0,1)).flat,math.ceil(k));
     return indexes[int(math.floor(numpy.random.uniform(k)))] if data_cond==0 else indexes[:int(k)];
 
-# @dask.delayed
 def qs(ti,dst,path,template,n,k,true_model=None,modelObj=None,thresh=100,idr=None):
     modelObj.ID = idr
     if not modelObj.rand:
@@ -56,7 +56,6 @@ def qsSampleCat(parameter,source,template,data_cond=0):
     mismatchMap[-template.shape[0]+1:,:]=numpy.nan;
     mismatchMap[:,-template.shape[1]+1:]=numpy.nan;
     indexes=numpy.argpartition(numpy.roll(mismatchMap,tuple(x//2 for x in template.shape),(0,1)).flat,math.ceil(k));
-# 	return indexes[int(math.floor(numpy.random.uniform(k)))];
     return indexes[int(math.floor(numpy.random.uniform(k)))] if data_cond==0 else indexes[:int(k)];
 
 def qsCat(ti,dst,path,template,n,k,true_model=None,modelObj=None,thresh=100,idr=None):
@@ -153,6 +152,7 @@ def dsCat(ti,dst,path,template,n,th,f):
 	return runsim((ti, dist,allowedPosition, n,th,f),ti, dst,path,template,dsSampleCat);
 
 def fw(ti,cand_index,p,simGrid,s_name,modelObj):
+    ''' function for calculating the likelihood and sampling one MPS candidate'''
     
     if s_name=='qsSampleCat':
         simGrid.flat[p]=1
@@ -191,31 +191,10 @@ def runsim(parameter,ti,dst,path,template,sampler,thresh,true_model=None,modelOb
     WRMSE = []
     LP = []
     if modelObj.fw=='pygimli':
+        # Set the Jacobian for each parallel simulation (fix problem with pickle using pygimli objects)
         modelObj.tt = set_J(modelObj.param,dst)
-    # fig = plt.figure(1,figsize=(15,5));
-    # ax = fig.add_subplot(1, 3, 1);
-    # ax2 = fig.add_subplot(1, 3, 2);
-    # ax3 = fig.add_subplot(1, 3, 3);
-    # ax.set_title('Data fit for std %.1f ns' %(modelObj.sigma_d))
-    # ax.set_xlabel('Simulated pixels')
-    # ax.set_ylabel('Data misfit WRMSE')
-    # ax2.set_title('Simulation grid')
-    # ax2.set_xlabel('x [pixel unit]')
-    # ax2.set_ylabel('y [pixel unit]')
-    # ax3.set_title('True model')
-    # ax3.set_xlabel('x [pixel unit]')
-    # im = ax2.imshow(dst)
-    # im2 = ax3.imshow(true_model)
-    # # ax2.set_xticks(numpy.arange(-.5, 8, 1), major=True)
-    # # ax2.set_yticks(numpy.arange(-.5, 16, 1), major=True)
-    # # ax2.set_xticklabels([])
-    # # ax2.set_yticklabels([])
-    # # ax2.grid(visible=1,which='both')
-    # cbar = plt.colorbar(im2)
+        
     for x,y,p,idx in zip(xL,yL,path,range(path.size)):
-        #print(x,y,p,idx)
-        # if(idx%(path.size//100)==0):
-            # print(idx*100//path.size," %");
         source*=numpy.nan;
         source[max(0,x-hx)-(x-hx):min(dst.shape[0]-1,x+hx)-x+hx+1,max(0,y-hy)-(y-hy):min(dst.shape[1]-1,y+hy)-y+hy+1]=\
             dst[max(0,x-hx):min(dst.shape[0],x+hx)+1,max(0,y-hy):min(dst.shape[1],y+hy)+1];
@@ -225,25 +204,13 @@ def runsim(parameter,ti,dst,path,template,sampler,thresh,true_model=None,modelOb
             simIndex, wrmse, LogProb = fw(ti,cand_index,p,dst.copy(),sampler.__name__,modelObj) 
             WRMSE.append(wrmse)
             LP.append(LogProb)
-            
-            # # ax.set_xlim(0,path.size)
-            # if idx>0:
-            #     ax.scatter(idx+1,WRMSE[-1],color='b')
-            # else:
-            #     ax.axhline(y = modelObj.sigma_d, color = 'r', linestyle = '-')
-            # display(fig) 
         else:
             simIndex=sampler(parameter,source,template);
-            # someInd, wrmse, LogProb = fw(ti,simIndex[numpy.newaxis],p,dst.copy(),sampler.__name__,modelObj) 
+            
         dst.flat[p]=ti.flat[simIndex];
 
-        # im.set_data(dst)
-        # im.set_clim([numpy.min(true_model),numpy.max(true_model)])
-        # cbar.draw_all() 
-        # fig.canvas.draw()
-        # plt.pause(0.01)
     if modelObj.fw=='pygimli':
+        # delete the Jacobian to avoid pickle issue due to pygimli objects)
         del modelObj.tt
-
 
     return dst, WRMSE, LP;

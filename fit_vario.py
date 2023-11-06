@@ -1,16 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on %(date)s
-
-@author: %(Shiran Levy)s
-"""
 import numpy as np
 import gstools as gs
-import pickle
 
 def fit_vario(TI,seed,case):
-    
+    ''' sampling from the training image and fitting a variogram'''
     x = np.arange(TI.shape[1])
     y = np.arange(TI.shape[0])
     
@@ -26,16 +18,7 @@ def fit_vario(TI,seed,case):
     )
     
     model = gs.Stable(dim=2)
-    
-    print("Original:")
-    print(model)
     model.fit_variogram(bin_center, dir_vario)
-    print("Fitted:")
-    print(model)
-    
-    with open('./TIs/'+case+'_fitvario.pkl', 'wb') as f:
-        pickle.dump((model), f)
-    
-    ''''can we use the mean and std over the TI??'''
+
     return model.len_scale_vec, model.alpha, model.var
 

@@ -1,6 +1,3 @@
-from dask_mpi import initialize
-initialize()
-
 import numpy as np
 import math
 import os
@@ -17,9 +14,9 @@ import itertools
 
 '''internal imports'''
 from sim import qs, qsCat
-from set_fw import set_fw, pygimli_fw
+from set_fw import set_fw, pygimli_fw, update_J, set_J
 from fit_vario import fit_vario
-from Model_obj import Model_obj, preferential_path
+from Model_obj import Model_obj
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Conditional MPS simulation"
@@ -28,14 +25,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--random", default=0, type=int, help="reproducible results (0), random paths (1)"
     )
-    parser.add_argument("--LikeProb", default=2, type=int, help="which likelihood to calculate (analytical (1), est. kriging cov-mean (2) or est. prior cov-mean (3) based)"
+    parser.add_argument("--LikeProb", default=2, type=int, help="which likelihood to calculate (1) analytical (only available for MG case) or (2) kriging-based"
     ) 
     parser.add_argument("--sampProp", default=1, type=int, help="sample proportional to the likelihood"
     )     
     parser.add_argument( "--data-cond", default=1, type=int, help="Condition MPS on data (0) no (1) yes"
-    )
-    parser.add_argument( "--preferential", default=1, type=int, help="Use preferential path based on fwd. operator (1) or not (0)"
-    )    
+    )   
     parser.add_argument( "--linear", default=0, type=int, help="linear (1) non-linear (0) forward solver"
     )
     parser.add_argument( "--resim", default=1, type=int, help="re-simulate on the best model for non linear solvers"
@@ -66,122 +61,100 @@ if __name__ == "__main__":
     )
     
     args = parser.parse_args()
-    outdir = args.outdir+args.case+'_k'+str(args.k)+'_n'+str(args.n)+'_alpha'+str(args.alpha)+'_NonLinearMPI/'
+    outdir = args.outdir+args.case+'_k'+str(args.k)+'_n'+str(args.n)+'_alpha'+str(args.alpha)+'testing/'
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     with open(outdir+'run_commandline_args.txt', 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
     homeDir = args.workdir
+    rand = args.random        
+    cutSize = args.TIsize
+    
     # forward simulation settings
     data_cond = args.data_cond
-    numRealz = args.numRealz   # number of realizations to simulate
-    rand = args.random        # set to random (1) or reproducable (0)
-    cutSize = args.TIsize
+    numRealz = args.numRealz   
     x = args.x
     y = args.y
     sigma_d  = args.sigma_d
-    stopDataCond = 100
+    stopDataCond = 100  # the percentage of simulated pixels after which to stop data conditioning (100 to have all pixels conditioned on data)
     
     # QS parameters 
-    n = args.n   # number of neighbors to caclulate based oI thought that maybe for the channels (and most probably for the lenses) case we try to implement something like what Gregoire suggested. Doing some "burn-in" n 
-    k = args.k    # probability of choosing k candidates (choosing 1 has the risk of 
-            # verbatim copy. 2 is 50% chance to choose either the first or the secod)
+    n = args.n   # number of neighbors
+    k = args.k   # number of MPS candidates
+
     kernel=np.ones((args.kernel_size,args.kernel_size));      # map of euclidian distances
     kernel[math.floor(kernel.shape[0]/2),math.floor(kernel.shape[1]/2)]=0;
     kernel = np.exp(-args.alpha*ndimage.morphology.distance_transform_edt(kernel))
     
     field = np.load('./TIs/'+args.case+'.npy')
-    #field = np.load('./TIs/GaussianRandomField_Iso10.npy')
+
     if args.case!='channels' and args.case!='lenses':
-        field = field*0.004+0.07  #assign valocity values
+        field = field*0.004+0.07  # assign new mean and standard deviation to the field  
         sampler = qs
-        fullTI = 1/field   #assign new mean and standard deviation to the field   
+        fullTI = 1/field   # convert to slowness (working with to avoid additional nonlinear transformations)
+        
         if args.case=='GaussianRandomField': 
-            true_model = fullTI[1200:1200+y,1200:1200+x]
-            #true_model = 1/(np.load('./TIs/LowConnectedGaussian.npy')[633:633+y,1831:1831+x]*0.004+0.07)
+            true_model = fullTI[1200:1200+y,1200:1200+x] # test case multiGaussian
         else:
-            #true_model = fullTI[1182:1182+y,1083:1083+x]
-            true_model = fullTI[633:633+y,1831:1831+x]
+            true_model = fullTI[633:633+y,1831:1831+x] # test case Zin & Harvey
 
     else:
         a0=None
         sampler = qsCat
-        #field = np.where(field==0.06,0,1) #if channels are slower (1,0) if matrix is faster (0,1)
-        #field = 0.06 + 0.02*(1-field)
-        fullTI = 1/field   #assign new mean and standard deviation to the field   
+        fullTI = 1/field  # convert to slowness (working with to avoid additional nonlinear transformations)
+         
         if args.case=='channels':
-            #true_model = fullTI[1020:1020+y,1040:1040+x]
-            true_model = fullTI[1700:1700+y,2194:2194+x]    # test case
-            #true_model = fullTI[1200:1200+y,1200:1200+x]   #test 1
-            #true_model = fullTI[1560:1560+y,1350:1350+x]   #test 2
+            true_model = fullTI[1700:1700+y,2194:2194+x]    # test case binary channels
         else:
-            #true_model = fullTI[1127:1127+y,1032:1032+x]
-            true_model = fullTI[1738:1738+y,2052:2052+x]    # test case
-            #true_model = fullTI[1200:1200+y,1200:1200+x]   #test 1
-            #true_model = fullTI[1770:1770+y,1435:1435+x]   #test 2
+            true_model = fullTI[1738:1738+y,2052:2052+x]    # test case binary lenses
 
-
-    ti = fullTI[:cutSize,:cutSize];
-    mu_m = np.mean(fullTI)
-    sigma_m = np.std(fullTI)
+    ti = fullTI[:cutSize,:cutSize]
+    mu_m = np.mean(fullTI)      # training image mean
+    sigma_m = np.std(fullTI)    # training image standard deviation
     
     #%%
+    # run the straight-ray tomography solver (linear)
     if args.linear:
         d_obs, A, index = set_fw(y,x,s_model=true_model,loc=0,scale=sigma_d,spacing=0.1,SnR_spacing=4,limit_angle=1,dir=outdir)
         model = Model_obj(data_cond,args.LikeProb,args.sampProp,x,y,sigma_d,sigma_m,mu_m,A,d_obs)
         model.fw = "linear"
+        
+    # run the travel-time tomography with pygimli solver (non-linear)
     else:
         d_obs, param, index = pygimli_fw(true_model, bh_spacing=x/10, bh_length=y/10, sensor_spacing=0.4,sigma_d=sigma_d,limit_angle=1,dir=outdir)
-        if args.LikeProb==4:
-            d_lin, A_lin, index_lin = set_fw(y,x,s_model=true_model,loc=0,scale=sigma_d,spacing=0.1,SnR_spacing=4,limit_angle=1,dir=outdir)
-            model = Model_obj(data_cond,args.LikeProb,args.sampProp,x,y,sigma_d,sigma_m,mu_m,A_lin,d_obs)
-            with open('mean_cov_error_'+args.case+'.pkl', 'rb') as f:
-                tmp = pickle.load(f)
-            d_Tapp = tmp[0]
-            C_Tapp = tmp[1]
-            if index.size>0:
-                d_Tapp = np.delete(d_Tapp,index, axis=0)
-                C_Tapp = np.delete(C_Tapp,index, axis=0)
-                C_Tapp = np.delete(C_Tapp,index, axis=1)
-            model.d_Tapp = d_Tapp
-            model.C_Tapp = C_Tapp
-            model.fw = "linear"
-            del d_lin, index_lin, tmp, d_Tapp, C_Tapp
-        elif args.resim:
-            from sim import set_J
-            from Calc_COV import update_J
-            bestModel = np.load(outdir+'bestModel.npy')
+        if args.resim:
+            # if running re-simulation based on best data fitting realisation (described in Section 4.2.)
+            bestModel = np.load(outdir+'bestModel.npy')  # reads the saved based model from previous run
             temp_tt = set_J(param,bestModel)
             A=update_J(bestModel, temp_tt)
             model = Model_obj(data_cond,args.LikeProb,args.sampProp,x,y,sigma_d,sigma_m,mu_m,A,d_obs)
             del temp_tt
             model.fw = "linear"
         else:
+            # running normal simulation based on Jacobian updates using pygimli
             model = Model_obj(data_cond,args.LikeProb,args.sampProp,x,y,sigma_d,sigma_m,mu_m,None,d_obs)
             model.fw = "pygimli"
             model.param = param
         
         
-    model.index = index
+    model.index = index  # indices of source-receiver pairs that are outside the angle limit range
     
     if args.case=="GaussianRandomField":
+        # Only available for the MG case for later comparison with the analytical solution
         model.a0 = loadmat('./TIs/GaussianRandomField_mean0unitVar5_10.mat')['range'][0]
+        
     if args.LikeProb>1:
+        # fitting a variogram to samples from the training image
         model.est_a0, model.est_alpha, model.est_var  = fit_vario(ti,seed=0,case=args.case)
 
-        #with open('./TIs/'+args.case+'_fitvario.pkl', 'rb') as f:
-        #    tmp = pickle.load(f)
-        #model.est_a0 = tmp.len_scale_vec 
-        #model.est_alpha = tmp.alpha
-        #model.est_var = tmp.var
-        #del tmp
     if not rand:
+        # setting the seed for reproducibility 
         model.rand=rand
         seed = np.arange(0,numRealz*10,10)   #if rand=0 array of seeds to use 
         model.seed=seed
         
-    #%%             Dask distributed
+    #%%             Running Running IDCS in parallel using Dask distributed
     if args.distributed==1 and numRealz>1:
         import dask
         from dask.distributed import Client, LocalCluster
@@ -195,31 +168,24 @@ if __name__ == "__main__":
         if not rand:
             np.random.seed(7)
         for r in range(numRealz):  
-            if args.preferential:
-                path.append(preferential_path(model.A))
-            else: 
-                path.append(np.random.permutation(dst[0].size))
+            path.append(np.random.permutation(dst[0].size))
+        np.save('./path_random.npy',path)
             
         futures = []
-        # Uncomment the next line for running the simulations using **dask**
-        #with LocalCluster(threads_per_worker=1) as cluster, Client(address=cluster) as client:
-        # Uncomment the next line for running the simulations using **dask-MPI**
-        with Client() as client:
-            # cluster.adapt(maximum_jobs=10, interval="10000 ms", wait_count=10)
-            #print(cluster)           
+        # running the simulations in parallel using dask client
+        with LocalCluster(threads_per_worker=1) as cluster, Client(address=cluster) as client:          
             start = time.time()
             for idr,(p,d) in enumerate(zip(path,dst)):    
                 future = client.submit(sampler,ti,d,p,kernel,n,k,modelObj=model,thresh=stopDataCond,idr=idr)
                 futures.append(future)
             result = client.gather(futures)
             end = time.time()
-            # dask.distributed.get_worker().log_event("runtimes", {"start": start, "stop": stop})
             print(round((end-start),4))
             assert future.done(), "No computation was made"
             client.retire_workers()
-            sleep(1)
-            
+
         if model.data_cond:
+            # conditional simulations results
             for r in range(numRealz):
                 realz.append(result[r][0])   
                 WRMSE.append(result[r][1])
@@ -228,10 +194,11 @@ if __name__ == "__main__":
             WRMSE = np.array(WRMSE)
             LP = np.array(LP)
         else:
+            # unconditional simulations results 
             for r in range(numRealz):
                 realz.append(result[r][0])             
     
-    #%%             Sequential simulation
+    #%%             Running IDCS sequentially
     else:
         realz = np.zeros((numRealz,y,x))
         WRMSE = np.zeros((numRealz,y*x))
@@ -246,15 +213,16 @@ if __name__ == "__main__":
             else: 
                 path = np.random.permutation(dst.size)
             path = np.random.permutation(dst.size)
-            # start = time.time()
             model.update = 0
             sim=sampler(ti,dst,path,kernel,n,k,true_model=true_model,modelObj=model,thresh=stopDataCond,idr=r)
-            # end = time.time()
-            # print(end - start)
+
             if model.data_cond:
                 realz[r] = sim[0]
                 WRMSE[r] = sim[1]
                 LP.append(sim[2])
+            else:
+                realz[r] = sim[0]
+                
         end = time.time()
         print(round((end-start),4))
         LP = np.array(LP)
