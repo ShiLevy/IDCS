@@ -5,7 +5,7 @@ The folder includes the scripts to run the IDCS with a linear straight-ray and n
 
 ## Scripts and folders:
 
-TI folder --> contains all trainin image examples used in the paper and an additional training image of lenses.
+**TIs** folder --> contains all trainin image examples used in the paper and an additional training image of lenses.
 
 ***qs.py*** --> main code to run the IDCS simulations
 
@@ -20,6 +20,14 @@ TI folder --> contains all trainin image examples used in the paper and an addit
 ***Model_obj*** --> saves all parameters into an object
 
 ***tomokernel_straight.py*** --> script to run the linear response (straight-ray traveltime tomography)
+
+## Requirement:
+
+gstools==1.4.1
+
+pygimli==1.4.0
+
+dask==2021.10.0
 
 ## Citation :
 
